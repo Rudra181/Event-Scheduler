@@ -113,13 +113,18 @@ function displayEvents() {
 function createEventCard(event) {
     const card = document.createElement('div');
     card.className = 'event-card';
+    
+    // Convert event time to IST for display
+    const indianTime = event.timezone === 'Asia/Kolkata' 
+        ? event.datetime 
+        : convertToIndianTime(event.datetime, event.timezone);
+    
     card.innerHTML = `
         <h3>${event.title}</h3>
         <p>${event.description || 'No description'}</p>
-        <p>Time: ${formatDateTime(event.datetime)}</p>
-        <p>Timezone: ${event.timezone}</p>
-        ${event.indianTime ? `<p>Indian Time: ${formatDateTime(event.indianTime)}</p>` : ''}
-        <div class="timer" data-time="${event.datetime}"></div>
+        <p>Original Time: ${formatDateTime(event.datetime)} (${event.timezone})</p>
+        <p>Indian Time: ${formatDateTime(indianTime)} (IST)</p>
+        <div class="timer" data-time="${indianTime}" data-original-time="${event.datetime}" data-timezone="${event.timezone}"></div>
         <div class="event-actions">
             <button onclick="editEvent('${event.id}')" class="btn-secondary">Edit</button>
             <button onclick="showDeleteModal('${event.id}')" class="btn-danger">Delete</button>
@@ -139,31 +144,37 @@ function formatDateTime(datetime) {
 
 function updateTimers() {
     const timerElements = document.querySelectorAll('.timer');
+    const nowIST = moment().tz('Asia/Kolkata');
+
     timerElements.forEach(timer => {
-        const eventTime = new Date(timer.dataset.time).getTime();
-        const now = new Date().getTime();
-        const distance = eventTime - now;
+        const eventTimeIST = moment.tz(timer.dataset.time, 'Asia/Kolkata');
+        const distance = eventTimeIST.diff(nowIST);
 
         if (distance < 0) {
             timer.textContent = 'Event has passed';
         } else {
-            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            const duration = moment.duration(distance);
+            const days = Math.floor(duration.asDays());
+            const hours = duration.hours();
+            const minutes = duration.minutes();
+            const seconds = duration.seconds();
 
-            timer.textContent = `Time remaining: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+            timer.textContent = `Time remaining (IST): ${days}d ${hours}h ${minutes}m ${seconds}s`;
         }
     });
 }
 
 function checkForUpcomingEvents() {
     setInterval(() => {
-        const now = new Date().getTime();
+        const nowIST = moment().tz('Asia/Kolkata');
         events.forEach(event => {
-            const eventTime = new Date(event.datetime).getTime();
-            if (Math.abs(eventTime - now) < 1000) { // Within 1 second
-                showAlert(`Event "${event.title}" is starting now!`);
+            const eventTimeIST = moment.tz(
+                event.timezone === 'Asia/Kolkata' ? event.datetime : convertToIndianTime(event.datetime, event.timezone),
+                'Asia/Kolkata'
+            );
+            
+            if (Math.abs(eventTimeIST.diff(nowIST)) < 1000) { // Within 1 second
+                showAlert(`Event "${event.title}" is starting now! (IST: ${eventTimeIST.format('h:mm A')})`);
             }
         });
     }, 1000);
