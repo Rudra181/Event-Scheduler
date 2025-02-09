@@ -1,6 +1,6 @@
 # Event Scheduler
 
-A powerful and intuitive event scheduling application that helps you manage your events with ease. The application provides seamless integration with Google Calendar while maintaining local storage functionality for offline access.
+A powerful and intuitive event scheduling application that helps you manage your events with ease. The application provides offline-first functionality with comprehensive timezone support.
 
 ## Features
 
@@ -19,14 +19,15 @@ A powerful and intuitive event scheduling application that helps you manage your
   - Automatic alerts when events are about to start
   - Visual countdown for upcoming events
 
-- **Google Calendar Integration**
-  - Automatic synchronization with Google Calendar
-  - Events created in the app appear in your Google Calendar
-  - Changes and deletions are reflected in Google Calendar
-
 - **Offline Support**
   - Local storage ensures your events persist even without internet
   - Continue creating and managing events offline
+
+- **Comprehensive Timezone Support**
+  - Support for all IANA timezones
+  - Organized by regions for easy selection
+  - Shows UTC offset for each timezone
+  - Automatic timezone conversion
 
 ## Technical Implementation
 
@@ -44,27 +45,13 @@ The application is built using a modern web stack with vanilla JavaScript, focus
    - Responsive layout using CSS Grid and Flexbox
 
 3. **Time Management**
-   - Timezone conversion functionality
+   - Timezone conversion functionality using Moment.js
    - Real-time countdown calculations
    - Automatic IST conversion for cross-timezone events
 
 ### APIs Used
 
-1. **Google Calendar API**
-   - Purpose: Synchronize events with Google Calendar
-   - Features used:
-     - Event creation
-     - Event deletion
-     - Event updates
-   - Integration: Uses gapi client library for API interactions
-
-2. **TimeZoneDB API**
-   - Purpose: Provide timezone information
-   - Features used:
-     - List of available timezones
-     - Timezone conversion
-
-3. **Local Storage API**
+1. **Local Storage API**
    - Purpose: Offline data persistence
    - Features used:
      - Event storage
@@ -72,19 +59,49 @@ The application is built using a modern web stack with vanilla JavaScript, focus
      - State management
    - Implementation:
      ```javascript
+     // Save events
      localStorage.setItem('events', JSON.stringify(events));
+     
+     // Retrieve events
      events = JSON.parse(localStorage.getItem('events')) || [];
      ```
+
+2. **Moment.js Timezone API**
+   - Purpose: Comprehensive timezone handling
+   - Features used:
+     - Complete IANA timezone database
+     - Timezone conversion
+     - Date formatting
+     - UTC offset calculation
 
 ## Setup and Configuration
 
 1. Clone the repository
-2. Set up Google Calendar API credentials:
-   - Create a project in Google Cloud Console
-   - Enable Google Calendar API
-   - Create API key and OAuth client ID
-   - Update `CLIENT_ID` and `API_KEY` in `script.js`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-3. Set up TimeZoneDB API:
-   - Get API key from TimeZoneDB
-   - Update the API key in the loadTimezones function
+## Development
+
+The project uses Vite as the build tool and development server. To start development:
+
+```bash
+npm run dev
+```
+
+## Production Build
+
+To create a production build:
+
+```bash
+npm run build
+```
+
+## Browser Support
+
+The application supports all modern browsers including:
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)

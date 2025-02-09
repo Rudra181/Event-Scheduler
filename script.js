@@ -1,67 +1,77 @@
-const CLIENT_ID = 'YOUR_CLIENT_ID';
-const API_KEY = 'AIzaSyCu0MBg34oC70PHxx1bmRYnB-EM7W4UAfA';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/calendar';
-
-let gapiInited = false;
-
-
+// DOM Elements
 const eventForm = document.getElementById('event-form');
 const eventsContainer = document.getElementById('events-container');
 const deleteModal = document.getElementById('delete-modal');
 const alertModal = document.getElementById('alert-modal');
 const timezoneSelect = document.getElementById('timezone');
 
+// Event storage
 let events = JSON.parse(localStorage.getItem('events')) || [];
 
+// Initialize the application
 function initializeApp() {
     loadTimezones();
     displayEvents();
     setupEventListeners();
     checkForUpcomingEvents();
-    initializeGoogleCalendar();
 }
 
-function initializeGoogleCalendar() {
-    gapi.load('client', async () => {
-        try {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-                clientId: CLIENT_ID,
-                scope: SCOPES,
-            });
-            gapiInited = true;
-        } catch (error) {
-            console.error('Error initializing Google Calendar:', error);
+// Load comprehensive list of timezones using moment-timezone
+function loadTimezones() {
+    const timezones = moment.tz.names(); // Get all timezone names
+    
+    // Sort timezones alphabetically
+    timezones.sort((a, b) => {
+        // Move common timezones to the top
+        const commonTimezones = ['Asia/Kolkata', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
+        const aIsCommon = commonTimezones.includes(a);
+        const bIsCommon = commonTimezones.includes(b);
+        
+        if (aIsCommon && !bIsCommon) return -1;
+        if (!aIsCommon && bIsCommon) return 1;
+        return a.localeCompare(b);
+    });
+
+    // Create timezone groups
+    const groups = {};
+    timezones.forEach(tz => {
+        const region = tz.split('/')[0];
+        if (!groups[region]) {
+            groups[region] = [];
         }
+        groups[region].push(tz);
+    });
+
+    // Clear existing options
+    timezoneSelect.innerHTML = '';
+
+    // Add timezones grouped by region
+    Object.keys(groups).sort().forEach(region => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = region;
+
+        groups[region].forEach(tz => {
+            const option = document.createElement('option');
+            option.value = tz;
+            // Format timezone name for better readability
+            const cityName = tz.split('/').pop().replace(/_/g, ' ');
+            option.textContent = `${cityName} (${moment.tz(tz).format('Z')})`;
+            if (tz === 'Asia/Kolkata') {
+                option.selected = true;
+            }
+            optgroup.appendChild(option);
+        });
+
+        timezoneSelect.appendChild(optgroup);
     });
 }
 
-async function loadTimezones() {
-    try {
-        const response = await fetch('http://api.timezonedb.com/v2.1/list-time-zone?key=BKP8J24Z0N4A&format=json');
-        const data = await response.json();
-        
-        data.zones.forEach(zone => {
-            const option = document.createElement('option');
-            option.value = zone.zoneName;
-            option.textContent = zone.zoneName;
-            if (zone.zoneName === 'Asia/Kolkata') {
-                option.selected = true;
-            }
-            timezoneSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading timezones:', error);
-    }
-}
-
+// Event handling functions
 function setupEventListeners() {
     eventForm.addEventListener('submit', handleEventSubmit);
 }
 
-async function handleEventSubmit(e) {
+function handleEventSubmit(e) {
     e.preventDefault();
 
     const title = document.getElementById('title').value;
@@ -77,69 +87,15 @@ async function handleEventSubmit(e) {
         timezone,
     };
 
+    // Convert to Indian time if needed
     if (timezone !== 'Asia/Kolkata') {
         event.indianTime = convertToIndianTime(datetime, timezone);
     }
 
-    try {
-        if (gapiInited) {
-            await createGoogleCalendarEvent(event);
-        }
-
-        events.push(event);
-        saveEvents();
-        displayEvents();
-        eventForm.reset();
-    } catch (error) {
-        console.error('Error creating event:', error);
-        showAlert('Failed to create event in Google Calendar');
-    }
-}
-
-async function createGoogleCalendarEvent(event) {
-    const calendarEvent = {
-        'summary': event.title,
-        'description': event.description,
-        'start': {
-            'dateTime': new Date(event.datetime).toISOString(),
-            'timeZone': event.timezone
-        },
-        'end': {
-            'dateTime': new Date(new Date(event.datetime).getTime() + 3600000).toISOString(),
-            'timeZone': event.timezone
-        }
-    };
-
-    try {
-        await gapi.client.calendar.events.insert({
-            'calendarId': 'primary',
-            'resource': calendarEvent
-        });
-    } catch (error) {
-        console.error('Error creating Google Calendar event:', error);
-        throw error;
-    }
-}
-
-async function deleteGoogleCalendarEvent(eventId) {
-    if (!gapiInited) return;
-
-    try {
-        const response = await gapi.client.calendar.events.list({
-            'calendarId': 'primary',
-            'q': eventId
-        });
-
-        const events = response.result.items;
-        if (events && events.length > 0) {
-            await gapi.client.calendar.events.delete({
-                'calendarId': 'primary',
-                'eventId': events[0].id
-            });
-        }
-    } catch (error) {
-        console.error('Error deleting Google Calendar event:', error);
-    }
+    events.push(event);
+    saveEvents();
+    displayEvents();
+    eventForm.reset();
 }
 
 function saveEvents() {
@@ -172,14 +128,13 @@ function createEventCard(event) {
     return card;
 }
 
+// Utility functions
 function convertToIndianTime(datetime, fromTimezone) {
-    const date = new Date(datetime);
-    const indianTime = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    return indianTime.toISOString();
+    return moment.tz(datetime, fromTimezone).tz('Asia/Kolkata').format();
 }
 
 function formatDateTime(datetime) {
-    return new Date(datetime).toLocaleString();
+    return moment(datetime).format('MMMM D, YYYY h:mm A');
 }
 
 function updateTimers() {
@@ -214,13 +169,13 @@ function checkForUpcomingEvents() {
     }, 1000);
 }
 
+// Modal handling
 function showDeleteModal(eventId) {
     deleteModal.style.display = 'block';
     const confirmButton = document.getElementById('confirm-delete');
     const cancelButton = document.getElementById('cancel-delete');
 
-    confirmButton.onclick = async () => {
-        await deleteGoogleCalendarEvent(eventId);
+    confirmButton.onclick = () => {
         deleteEvent(eventId);
     };
     cancelButton.onclick = () => deleteModal.style.display = 'none';
@@ -243,7 +198,7 @@ function deleteEvent(eventId) {
     deleteModal.style.display = 'none';
 }
 
-async function editEvent(eventId) {
+function editEvent(eventId) {
     const event = events.find(e => e.id === eventId);
     if (!event) return;
 
@@ -253,12 +208,12 @@ async function editEvent(eventId) {
         .toISOString().slice(0, 16);
     document.getElementById('timezone').value = event.timezone;
 
-    await deleteGoogleCalendarEvent(eventId);
-    deleteEvent(eventId);
+    deleteEvent(eventId); // Remove the old event
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-
+// Start the timer update
 setInterval(updateTimers, 1000);
 
+// Initialize the application
 initializeApp();
